@@ -7,15 +7,13 @@ import { customEmit } from './customEvent';
  * (like when opening modal and moving element around DOM)
  * @param element
  * @param Vue
- * @param componentDefinition
+ * @param ComponentConstructor
  * @param props
  * @param options
  */
-export default function createVueInstance(element, Vue, componentDefinition, props, options) {
+export default function createVueInstance(element, Vue, ComponentConstructor, props, options) {
   if (!element.__vue_custom_element__) {
-    const ComponentDefinition = Vue.util.extend({}, componentDefinition);
-    const propsData = getPropsData(element, ComponentDefinition, props);
-    const vueVersion = (Vue.version && parseInt(Vue.version.split('.')[0], 10)) || 0;
+    const propsData = getPropsData(element, ComponentConstructor.options, props);
 
     // Auto event handling based on $emit
     function beforeCreate() { // eslint-disable-line no-inner-declarations
@@ -25,66 +23,38 @@ export default function createVueInstance(element, Vue, componentDefinition, pro
       };
     }
 
-    if (ComponentDefinition._compiled) { // eslint-disable-line no-underscore-dangle
-      let ctorOptions = {}; // adjust vue-loader cache object if necessary - https://github.com/vuejs/vue-loader/issues/83
-      if (ComponentDefinition._Ctor) { // eslint-disable-line no-underscore-dangle
-        ctorOptions = ComponentDefinition._Ctor[0].options;  // eslint-disable-line no-underscore-dangle
-      }
-      ComponentDefinition.beforeCreate = ComponentDefinition.beforeCreate || [];
-      ComponentDefinition.beforeCreate.push(beforeCreate);
-      ctorOptions.beforeCreate = ComponentDefinition.beforeCreate;
-    } else {
-      ComponentDefinition.beforeCreate = beforeCreate;
-    }
+    const ExtendedComponentConstructor = ComponentConstructor.extend({ beforeCreate });
 
-    let rootElement;
+    const elementOriginalChildren = element.cloneNode(true).childNodes; // clone hack due to IE compatibility
+    const rootElement = {
+      propsData,
+      props: props.camelCase,
+      computed: {
+        reactiveProps() {
+          const reactivePropsList = {};
+          props.camelCase.forEach((prop) => {
+            reactivePropsList[prop] = this[prop];
+          });
 
-    if (vueVersion >= 2) {
-      const elementOriginalChildren = element.cloneNode(true).childNodes; // clone hack due to IE compatibility
-      // Vue 2+
-      rootElement = {
-        propsData,
-        props: props.camelCase,
-        computed: {
-          reactiveProps() {
-            const reactivePropsList = {};
-            props.camelCase.forEach((prop) => {
-              reactivePropsList[prop] = this[prop];
-            });
-
-            return reactivePropsList;
-          }
-        },
-        /* eslint-disable */
-        render(createElement) {
-          const data = {
-            props: this.reactiveProps
-          };
-
-          return createElement(
-            ComponentDefinition,
-            data,
-            getSlots(elementOriginalChildren, createElement)
-          );
+          return reactivePropsList;
         }
-        /* eslint-enable */
-      };
-    } else if (vueVersion === 1) {
-      // Fallback for Vue 1.x
-      rootElement = ComponentDefinition;
-      rootElement.propsData = propsData;
-    } else {
-      // Fallback for older Vue versions
-      rootElement = ComponentDefinition;
-      const propsWithDefault = {};
-      Object.keys(propsData)
-        .forEach((prop) => {
-          propsWithDefault[prop] = { default: propsData[prop] };
-        });
-      rootElement.props = propsWithDefault;
-    }
+      },
+      /* eslint-disable */
+      render(createElement) {
+        const data = {
+          props: this.reactiveProps
+        };
 
-    const elementInnerHtml = vueVersion >= 2 ? '<div></div>' : `<div>${element.innerHTML}</div>`.replace(/vue-slot=/g, 'slot=');
+        return createElement(
+          ExtendedComponentConstructor,
+          data,
+          getSlots(elementOriginalChildren, createElement)
+        );
+      }
+      /* eslint-enable */
+    };
+
+    const elementInnerHtml = '<div></div>';
     if (options.shadow && element.shadowRoot) {
       element.shadowRoot.innerHTML = elementInnerHtml;
       rootElement.el = element.shadowRoot.children[0];

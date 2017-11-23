@@ -4,32 +4,17 @@ import { getProps, convertAttributeValue } from './utils/props';
 import { camelize } from './utils/helpers';
 
 function install(Vue) {
-  Vue.customElement = function vueCustomElement(tag, componentDefinition, options = {}) {
-    const isAsyncComponent = typeof componentDefinition === 'function';
-    const optionsProps = isAsyncComponent && { props: options.props || [] };
-    const props = getProps(isAsyncComponent ? optionsProps : componentDefinition);
+  Vue.customElement = function vueCustomElement(tag, componentConstructor, options = {}) {
+    const props = getProps(componentConstructor);
     // register Custom Element
-    const CustomElement = registerCustomElement(tag, {
+    return registerCustomElement(tag, {
       constructorCallback() {
         typeof options.constructorCallback === 'function' && options.constructorCallback.call(this);
       },
 
       connectedCallback() {
-        const asyncComponentPromise = isAsyncComponent && componentDefinition();
-        const isAsyncComponentPromise = asyncComponentPromise && asyncComponentPromise.then && typeof asyncComponentPromise.then === 'function';
-
-        if (isAsyncComponent && !isAsyncComponentPromise) {
-          throw new Error(`Async component ${tag} do not returns Promise`);
-        }
         if (!this.__detached__) {
-          if (isAsyncComponentPromise) {
-            asyncComponentPromise.then((lazyLoadedComponent) => {
-              const lazyLoadedComponentProps = getProps(lazyLoadedComponent);
-              createVueInstance(this, Vue, lazyLoadedComponent, lazyLoadedComponentProps, options);
-            });
-          } else {
-            createVueInstance(this, Vue, componentDefinition, props, options);
-          }
+          createVueInstance(this, Vue, componentConstructor, props, options);
         }
 
         this.__detached__ = false;
@@ -54,7 +39,7 @@ function install(Vue) {
       /**
        * When attribute changes we should update Vue instance
        * @param name
-       * @param oldVal
+       * @param oldValue
        * @param value
        */
       attributeChangedCallback(name, oldValue, value) {
@@ -69,8 +54,6 @@ function install(Vue) {
 
       shadow: !!options.shadow && !!HTMLElement.prototype.attachShadow
     });
-
-    return CustomElement;
   };
 }
 

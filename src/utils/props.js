@@ -35,31 +35,33 @@ function extractProps(collection, props) {
   }
 }
 
-/**
- * Extract props from component definition, no matter if it's array or object
- * @param componentDefinition
- * @param Vue
- */
-export function getProps(componentDefinition = {}) {
-  const props = {
-    camelCase: [],
-    hyphenate: []
-  };
+function getPropsRecursive(ComponentConstructor, props) {
+  const options = ComponentConstructor.options;
+  if (!options) {
+    return;
+  }
 
-
-  if (componentDefinition.mixins) {
-    componentDefinition.mixins.forEach((mixin) => {
+  if (options.mixins) {
+    options.mixins.forEach((mixin) => {
       extractProps(mixin.props, props);
     });
   }
 
-  if (componentDefinition.extends && componentDefinition.extends.props) {
-    const { props: parentProps } = componentDefinition.extends;
+  extractProps(options.props, props);
 
-    extractProps(parentProps, props);
+  if (ComponentConstructor.constructor) {
+    getPropsRecursive(ComponentConstructor.constructor, props);
   }
+}
 
-  extractProps(componentDefinition.props, props);
+/**
+ * Extract props from component definition, no matter if it's array or object
+ * @param ComponentConstructor
+ */
+export function getProps(ComponentConstructor) {
+  const props = { camelCase: [], hyphenate: [] };
+
+  getPropsRecursive(ComponentConstructor, props);
 
   props.camelCase.forEach((prop) => {
     props.hyphenate.push(hyphenate(prop));
@@ -96,7 +98,7 @@ export function reactiveProps(element, props) {
 
 /**
  * In root Vue instance we should initialize props as 'propsData'.
- * @param instanceOptions
+ * @param element
  * @param componentDefinition
  * @param props
  */
