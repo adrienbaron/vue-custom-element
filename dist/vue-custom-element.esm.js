@@ -178,10 +178,12 @@ function extractProps(collection, props) {
   }
 }
 
-function getPropsRecursive(ComponentConstructor, props) {
+function getProps(ComponentConstructor) {
+  var props = { camelCase: [], hyphenate: [] };
+
   var options = ComponentConstructor.options;
   if (!options) {
-    return;
+    return props;
   }
 
   if (options.mixins) {
@@ -191,16 +193,6 @@ function getPropsRecursive(ComponentConstructor, props) {
   }
 
   extractProps(options.props, props);
-
-  if (ComponentConstructor.constructor) {
-    getPropsRecursive(ComponentConstructor.constructor, props);
-  }
-}
-
-function getProps(ComponentConstructor) {
-  var props = { camelCase: [], hyphenate: [] };
-
-  getPropsRecursive(ComponentConstructor, props);
 
   props.camelCase.forEach(function (prop) {
     props.hyphenate.push(hyphenate(prop));
@@ -381,7 +373,7 @@ function install(Vue) {
 
     var props = getProps(componentConstructor);
 
-    var CustomElement = registerCustomElement(tag, {
+    return registerCustomElement(tag, {
       constructorCallback: function constructorCallback() {
         typeof options.constructorCallback === 'function' && options.constructorCallback.call(this);
       },
@@ -417,8 +409,6 @@ function install(Vue) {
 
       shadow: !!options.shadow && !!HTMLElement.prototype.attachShadow
     });
-
-    return CustomElement;
   };
 }
 

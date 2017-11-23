@@ -35,10 +35,16 @@ function extractProps(collection, props) {
   }
 }
 
-function getPropsRecursive(ComponentConstructor, props) {
+/**
+ * Extract props from component definition, no matter if it's array or object
+ * @param ComponentConstructor
+ */
+export function getProps(ComponentConstructor) {
+  const props = { camelCase: [], hyphenate: [] };
+
   const options = ComponentConstructor.options;
   if (!options) {
-    return;
+    return props;
   }
 
   if (options.mixins) {
@@ -48,20 +54,6 @@ function getPropsRecursive(ComponentConstructor, props) {
   }
 
   extractProps(options.props, props);
-
-  if (ComponentConstructor.constructor) {
-    getPropsRecursive(ComponentConstructor.constructor, props);
-  }
-}
-
-/**
- * Extract props from component definition, no matter if it's array or object
- * @param ComponentConstructor
- */
-export function getProps(ComponentConstructor) {
-  const props = { camelCase: [], hyphenate: [] };
-
-  getPropsRecursive(ComponentConstructor, props);
 
   props.camelCase.forEach((prop) => {
     props.hyphenate.push(hyphenate(prop));
