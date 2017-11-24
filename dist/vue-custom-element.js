@@ -388,6 +388,7 @@ function install(Vue) {
           createVueInstance(this, Vue, componentConstructor, props, options);
         }
 
+        typeof options.connectedCallback === 'function' && options.connectedCallback.call(this);
         this.__detached__ = false;
       },
       disconnectedCallback: function disconnectedCallback() {
